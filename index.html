@@ -63,9 +63,16 @@
 
 <!-- LOGIN PAGE -->
 <div id="login-page" class="flex min-h-screen w-full items-center justify-center px-4 relative overflow-hidden">
-  <div class="absolute inset-0 bg-navy-950"></div>
-  <div class="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-gold-500/5 blur-3xl"></div>
-  <div class="absolute -bottom-40 -left-40 w-[28rem] h-[28rem] rounded-full bg-navy-500/10 blur-3xl"></div>
+  
+  <!-- 1. Background Foto Asli -->
+  <div class="absolute inset-0 bg-[url('./background.jpeg')] bg-cover bg-center bg-no-repeat"></div>
+  
+  <!-- 2. Overlay Gelap Transparan (Agar form login tetap terbaca) -->
+  <div class="absolute inset-0 bg-navy-950/75 backdrop-blur-[2px]"></div>
+
+  <!-- 3. Efek Cahaya Emas & Navy -->
+  <div class="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-gold-500/20 blur-3xl"></div>
+  <div class="absolute -bottom-40 -left-40 w-[28rem] h-[28rem] rounded-full bg-navy-500/30 blur-3xl"></div>
 
   <div class="relative z-10 w-full max-w-[400px]">
     <div class="bg-white rounded-[24px] shadow-float p-8 sm:p-10 border border-navy-50/50">
