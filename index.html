@@ -454,7 +454,7 @@
 
 <script>
 // PENTING: Ganti ke localhost:8000 kalau ngetes di laptop!
-const API_BASE_URL = "https://clone-basin-payday.ngrok-free.dev";
+const API_BASE_URL = "http://localhost:8000";
 
 const icons = { 
   home:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>', 
@@ -486,7 +486,7 @@ let userAktif = {};
 let selectedIdTolak = null;
 
 // =============================
-// LOGIN LOGIC
+// LOGIN LOGIC & JWT STORAGE
 // =============================
 document.getElementById('login-form').addEventListener('submit', async function(e) { 
   e.preventDefault(); 
@@ -506,6 +506,11 @@ document.getElementById('login-form').addEventListener('submit', async function(
     if (!response.ok) throw new Error((await response.json()).detail || "Gagal terhubung.");
     const result = await response.json();
     
+    // MENYIMPAN TOKEN JWT KE LOCAL STORAGE E-BROWSER
+    if (result.token) {
+        localStorage.setItem("acont_token", result.token);
+    }
+
     userAktif = result.data.identitas || {nama: "Admin", npm: "admin"};
     userAktif.is_kandidat = result.data.is_kandidat;
     
@@ -544,7 +549,7 @@ document.getElementById('login-form').addEventListener('submit', async function(
 });
 
 // =============================
-// RENDER UI LOGIC (REVISI PENUH)
+// RENDER UI LOGIC
 // =============================
 function renderDataToUI(data) {
   let nama = data.identitas.nama || 'Mahasiswa';
@@ -617,12 +622,16 @@ function renderDataToUI(data) {
 }
 
 // =============================
-// MAPRES LOGIC (MAHASISWA)
+// MAPRES LOGIC DENGAN JWT AUTHORIZATION
 // =============================
 async function daftarSebagaiKandidat() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/daftar_kandidat`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
+            method: "POST", 
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("acont_token")}`
+            },
             body: JSON.stringify({ npm: userAktif.npm })
         });
         const data = await response.json();
@@ -633,7 +642,7 @@ async function daftarSebagaiKandidat() {
             loadStatusPengajuan();
             loadRanking();
             showToast(data.message, "success");
-        } else { showToast("Gagal mendaftar.", "error"); }
+        } else { showToast(data.detail || "Gagal mendaftar.", "error"); }
     } catch(e) { showToast("Error jaringan.", "error"); }
 }
 
@@ -647,7 +656,11 @@ async function ajukanMapres() {
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/ajukan_mapres`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
+            method: "POST", 
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("acont_token")}`
+            },
             body: JSON.stringify({ npm: userAktif.npm, nama: userAktif.nama, nama_prestasi, kategori, tingkat, link_bukti })
         });
         const data = await response.json();
@@ -662,8 +675,12 @@ async function ajukanMapres() {
 
 async function loadStatusPengajuan() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/status_pengajuan_saya?npm=${userAktif.npm}`);
+        const response = await fetch(`${API_BASE_URL}/api/status_pengajuan_saya?npm=${userAktif.npm}`, {
+            headers: { "Authorization": `Bearer ${localStorage.getItem("acont_token")}` }
+        });
         const hasil = await response.json();
+        if(!response.ok) return showToast(hasil.detail, "error");
+
         const tbody = document.getElementById("tabel-status");
         
         if(hasil.data.length === 0) {
@@ -688,8 +705,12 @@ async function loadStatusPengajuan() {
 
 async function loadRanking() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/ranking`);
+        const response = await fetch(`${API_BASE_URL}/api/ranking`, {
+            headers: { "Authorization": `Bearer ${localStorage.getItem("acont_token")}` }
+        });
         const hasil = await response.json();
+        if(!response.ok) return showToast(hasil.detail, "error");
+
         const tbody = document.getElementById("tabel-ranking");
         if(hasil.data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-sm font-medium text-navy-400">Belum ada Kandidat.</td></tr>`;
@@ -710,12 +731,16 @@ async function loadRanking() {
 }
 
 // =============================
-// ADMIN LOGIC (VERIFIKASI)
+// ADMIN LOGIC (VERIFIKASI) DENGAN JWT AUTHORIZATION
 // =============================
 async function loadAdminData() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/pengajuan_pending`);
+        const response = await fetch(`${API_BASE_URL}/api/pengajuan_pending`, {
+            headers: { "Authorization": `Bearer ${localStorage.getItem("acont_token")}` }
+        });
         const hasil = await response.json();
+        if(!response.ok) return showToast(hasil.detail, "error");
+
         const tbody = document.getElementById("tabel-admin");
         if (hasil.data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-sm font-medium text-navy-400">Tidak ada pengajuan pending.</td></tr>`;
@@ -745,10 +770,18 @@ async function loadAdminData() {
 async function verifikasiACC(id) {
     try {
         const response = await fetch(`${API_BASE_URL}/api/approve_mapres`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
+            method: "POST", 
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("acont_token")}`
+            },
             body: JSON.stringify({ id_pengajuan: id, keputusan: "disetujui", alasan: "-" })
         });
-        if(response.ok) { showToast("Prestasi disetujui!", "success"); loadAdminData(); }
+        const data = await response.json();
+        if(response.ok) { 
+            showToast("Prestasi disetujui!", "success"); 
+            loadAdminData(); 
+        } else { showToast(data.detail, "error"); }
     } catch(e) { showToast("Error.", "error"); }
 }
 
@@ -771,15 +804,29 @@ async function konfirmasiTolak() {
     
     try {
         const response = await fetch(`${API_BASE_URL}/api/approve_mapres`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
+            method: "POST", 
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("acont_token")}`
+            },
             body: JSON.stringify({ id_pengajuan: selectedIdTolak, keputusan: "ditolak", alasan: alasan })
         });
-        if(response.ok) { showToast("Prestasi berhasil ditolak.", "success"); loadAdminData(); closeModalTolak(); }
+        const data = await response.json();
+        if(response.ok) { 
+            showToast("Prestasi berhasil ditolak.", "success"); 
+            loadAdminData(); 
+            closeModalTolak(); 
+        } else { showToast(data.detail, "error"); }
     } catch(e) { showToast("Error.", "error"); }
 }
 
-// NAVIGATION
-function doLogout(){ location.reload(); }
+// NAVIGATION & LOGOUT
+function doLogout(){ 
+  // HAPUS TOKEN JWT DARI BROWSER
+  localStorage.removeItem("acont_token");
+  location.reload(); 
+}
+
 let desktopCollapsed = false;
 function toggleSidebar() {
   const sb = document.getElementById('sidebar'), overlay = document.getElementById('mobile-overlay');
