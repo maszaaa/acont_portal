@@ -1,14 +1,16 @@
-from fastapi import FastAPI, HTTPException
+import jwt
+from datetime import datetime, timedelta, timezone
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 from bs4 import BeautifulSoup
 import re
 import sqlite3
-import datetime
 import calendar
 
-app = FastAPI(title="ACONT API Backend - Final Perfect System")
+app = FastAPI(title="ACONT API Backend - Secured (JWT)")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,6 +19,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ==========================================
+# 0. KONFIGURASI KEAMANAN (JWT) - BARU
+# ==========================================
+SECRET_KEY = "ACONT_RAHASIA_NEGARA_PKN_STAN_2026" # Gunakan key yang kuat di versi production
+ALGORITHM = "HS256"
+security = HTTPBearer()
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    # Token berlaku selama 2 jam
+    expire = datetime.now(timezone.utc) + timedelta(hours=2)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        # Dekripsi token dari header Authorization: Bearer <token>
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Sesi login telah berakhir, silakan login ulang.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token otentikasi tidak valid atau telah dimanipulasi.")
 
 # ==========================================
 # 1. SETUP DATABASE SQLITE (PENYIMPANAN & MAPRES)
@@ -68,9 +94,9 @@ init_db()
 # 2. LOGIKA AUTO-LOCK DEADLINE MAPRES
 # ==========================================
 def cek_status_waktu_pengajuan():
-    sekarang = datetime.datetime.now()
+    sekarang = datetime.now()
     _, hari_terakhir = calendar.monthrange(sekarang.year, sekarang.month)
-    batas_waktu = datetime.datetime(sekarang.year, sekarang.month, hari_terakhir, 15, 0, 0)
+    batas_waktu = datetime(sekarang.year, sekarang.month, hari_terakhir, 15, 0, 0)
     if sekarang > batas_waktu: return False
     return True
 
@@ -98,7 +124,7 @@ class VerifikasiMapresRequest(BaseModel):
     alasan: str = ""
 
 # ==========================================
-# 4. FUNGSI SCRAPING (ASLI BUATANMU)
+# 4. FUNGSI SCRAPING
 # ==========================================
 BASE_URL = "https://portal.pknstan.ac.id"
 LANDING_URL = f"{BASE_URL}/"
@@ -230,16 +256,30 @@ def hitung_skor_otomatis(tingkat: str) -> int:
     return {"Internasional": 100, "Nasional": 75, "Provinsi": 50, "Regional": 25, "Kampus": 10}.get(tingkat, 0)
 
 # ==========================================
-# 5. ENDPOINTS API MAPRES & INTEGRASI
+# 5. ENDPOINTS API MAPRES & INTEGRASI (SECURED)
 # ==========================================
+
 @app.post("/api/login")
 def login_and_scrape(req: LoginRequest):
-    # BYPASS ADMIN
-    if req.npm == "admin" and req.password == "admin":
-        return {"status": "success", "role": "admin", "data": {"identitas": {"nama": "Administrator", "npm": "admin"}}}
+    # 1. Normalisasi Input (Hapus spasi tersembunyi & ubah ke huruf kecil)
+    input_npm = req.npm.strip().lower()
+    input_password = req.password.strip()
 
+    # 2. LOGIN ADMIN (Menggunakan input yang sudah dinormalisasi)
+    if input_npm == "admin" and input_password == "kelompoksatu":
+        # Generate token JWT untuk Admin
+        token = create_access_token({"sub": "admin", "role": "admin"})
+        return {
+            "status": "success", 
+            "role": "admin", 
+            "token": token, # Kirim token ke frontend
+            "data": {"identitas": {"nama": "Administrator", "npm": "admin"}}
+        }
+
+    # 3. LOGIN MAHASISWA
     with requests.Session() as session:
-        success, msg = login_portal(session, req.npm, req.password)
+        # Gunakan req.npm asli agar format NPM yang dikirim ke Portal STAN tidak berubah
+        success, msg = login_portal(session, req.npm.strip(), req.password)
         
         if not success:
             raise HTTPException(status_code=401, detail=msg)
@@ -251,7 +291,6 @@ def login_and_scrape(req: LoginRequest):
             npm = data["identitas"].get("npm", "-")
             nama = data["identitas"].get("nama", "-")
             
-            # Amankan konversi nilai untuk Database Ranking Mapres
             def to_float(val):
                 try: return float(str(val).replace(",", ".").strip())
                 except: return 0.0
@@ -263,7 +302,6 @@ def login_and_scrape(req: LoginRequest):
             conn = sqlite3.connect(DB_FILE)
             cursor = conn.cursor()
             
-            # Update atau Insert data mentah ke database
             cursor.execute('''
                 INSERT INTO mahasiswa_stats (npm, nama, ipk, siku, skpm, is_kandidat) 
                 VALUES (?, ?, ?, ?, ?, 0)
@@ -271,7 +309,6 @@ def login_and_scrape(req: LoginRequest):
                 nama=excluded.nama, ipk=excluded.ipk, siku=excluded.siku, skpm=excluded.skpm
             ''', (npm, nama, ipk_val, siku_val, skpm_val))
             
-            # Tarik status kandidat Mapres
             cursor.execute("SELECT is_kandidat FROM mahasiswa_stats WHERE npm = ?", (npm,))
             row = cursor.fetchone()
             data["is_kandidat"] = bool(row[0]) if row else False
@@ -280,12 +317,24 @@ def login_and_scrape(req: LoginRequest):
             conn.commit()
             conn.close()
 
-            return {"status": "success", "role": "mahasiswa", "data": data}
+            # Generate token JWT untuk Mahasiswa
+            token = create_access_token({"sub": npm, "role": "mahasiswa"})
+
+            return {
+                "status": "success", 
+                "role": "mahasiswa", 
+                "token": token, # Kirim token ke frontend
+                "data": data
+            }
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Gagal mengekstrak tabel data: {str(e)}")
 
 @app.post("/api/daftar_kandidat")
-def daftar_kandidat(req: DaftarKandidatRequest):
+def daftar_kandidat(req: DaftarKandidatRequest, current_user: dict = Depends(verify_token)):
+    # OTORISASI: Pastikan mahasiswa tidak mendaftarkan NPM orang lain
+    if current_user["role"] != "admin" and current_user["sub"] != req.npm:
+        raise HTTPException(status_code=403, detail="Akses ditolak: Anda tidak bisa mendaftarkan NPM lain.")
+
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("UPDATE mahasiswa_stats SET is_kandidat = 1 WHERE npm = ?", (req.npm,))
@@ -295,7 +344,11 @@ def daftar_kandidat(req: DaftarKandidatRequest):
     return {"status": "success", "message": "Selamat! Anda resmi terdaftar sebagai Kandidat Mapres."}
 
 @app.post("/api/ajukan_mapres")
-def ajukan_mapres(req: AjukanMapresRequest):
+def ajukan_mapres(req: AjukanMapresRequest, current_user: dict = Depends(verify_token)):
+    # OTORISASI: Pastikan mahasiswa tidak mengajukan prestasi menggunakan akun/NPM orang lain
+    if current_user["role"] != "admin" and current_user["sub"] != req.npm:
+        raise HTTPException(status_code=403, detail="Akses ditolak: Anda tidak bisa mengajukan prestasi untuk NPM lain.")
+
     if not cek_status_waktu_pengajuan():
         raise HTTPException(status_code=403, detail="Batas pengajuan ditutup (Maks tanggal terakhir jam 15.00 WIB).")
 
@@ -309,7 +362,11 @@ def ajukan_mapres(req: AjukanMapresRequest):
     return {"status": "success", "message": "Prestasi diajukan dan masuk antrean verifikasi Admin."}
 
 @app.get("/api/status_pengajuan_saya")
-def lihat_status_pengajuan(npm: str):
+def lihat_status_pengajuan(npm: str, current_user: dict = Depends(verify_token)):
+    # OTORISASI: Cegah mahasiswa mengintip status pengajuan mahasiswa lain (Admin bebas)
+    if current_user["role"] != "admin" and current_user["sub"] != npm:
+        raise HTTPException(status_code=403, detail="Akses ditolak: Anda hanya dapat melihat data Anda sendiri.")
+
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT nama_prestasi, tingkat, status, skor, alasan_tolak FROM mapres WHERE npm = ? ORDER BY id DESC", (npm,))
@@ -318,7 +375,11 @@ def lihat_status_pengajuan(npm: str):
     return {"status": "success", "data": hasil}
 
 @app.get("/api/pengajuan_pending")
-def lihat_pengajuan_pending():
+def lihat_pengajuan_pending(current_user: dict = Depends(verify_token)):
+    # OTORISASI KHUSUS ADMIN
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Hanya Administrator yang memiliki akses ke halaman ini.")
+
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT id, npm, nama, nama_prestasi, kategori, tingkat, link_bukti FROM mapres WHERE status = 'Pending'")
@@ -327,7 +388,11 @@ def lihat_pengajuan_pending():
     return {"status": "success", "data": hasil}
 
 @app.post("/api/approve_mapres")
-def verifikasi_mapres(req: VerifikasiMapresRequest):
+def verifikasi_mapres(req: VerifikasiMapresRequest, current_user: dict = Depends(verify_token)):
+    # OTORISASI KHUSUS ADMIN
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Hanya Administrator yang dapat memverifikasi prestasi.")
+
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
@@ -352,7 +417,8 @@ def verifikasi_mapres(req: VerifikasiMapresRequest):
     return {"status": "success", "message": pesan}
 
 @app.get("/api/ranking")
-def get_ranking_mapres():
+def get_ranking_mapres(current_user: dict = Depends(verify_token)):
+    # Memastikan hanya user login (mahasiswa atau admin) yang bisa melihat tabel ranking
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute('''
