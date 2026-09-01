@@ -61,16 +61,52 @@
     </div>
 </div>
 
+<!-- MODAL EDIT PENGAJUAN (UNTUK MAHASISWA) -->
+<div id="modal-edit" class="fixed inset-0 bg-navy-950/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 transition-opacity">
+    <div class="bg-white rounded-2xl shadow-float p-6 w-full max-w-lg fade-in">
+        <h3 class="text-lg font-bold text-navy-900 mb-4">Edit Pengajuan Prestasi</h3>
+        <input type="hidden" id="edit-id">
+        <div class="space-y-4">
+            <div>
+                <label class="block text-[11px] font-bold text-navy-400 mb-1">Nama Prestasi</label>
+                <input type="text" id="edit-nama" class="w-full px-4 py-2.5 rounded-xl border border-navy-100 text-sm">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[11px] font-bold text-navy-400 mb-1">Kategori</label>
+                    <select id="edit-kategori" class="w-full px-4 py-2.5 rounded-xl border border-navy-100 text-sm">
+                        <option value="Akademik">Akademik</option>
+                        <option value="Non-Akademik">Non-Akademik</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-navy-400 mb-1">Tingkat</label>
+                    <select id="edit-tingkat" class="w-full px-4 py-2.5 rounded-xl border border-navy-100 text-sm">
+                        <option value="Internasional">Internasional</option>
+                        <option value="Nasional">Nasional</option>
+                        <option value="Provinsi">Provinsi</option>
+                        <option value="Regional">Regional</option>
+                        <option value="Kampus">Kampus</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-navy-400 mb-1">Link Bukti Baru</label>
+                <input type="url" id="edit-link" class="w-full px-4 py-2.5 rounded-xl border border-navy-100 text-sm">
+            </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+            <button onclick="closeModalEdit()" class="px-5 py-2.5 rounded-xl font-bold text-sm text-navy-500 hover:bg-navy-50 transition">Batal</button>
+            <button onclick="konfirmasiEdit()" class="px-5 py-2.5 rounded-xl bg-navy-900 hover:bg-navy-800 text-white font-bold text-sm shadow-soft transition">Simpan Perubahan</button>
+        </div>
+    </div>
+</div>
+
 <!-- LOGIN PAGE -->
 <div id="login-page" class="flex min-h-screen w-full items-center justify-center px-4 relative overflow-hidden">
   
-  <!-- 1. Background Foto Asli -->
   <div class="absolute inset-0 bg-[url('./background.jpeg')] bg-cover bg-center bg-no-repeat"></div>
-  
-  <!-- 2. Overlay Gelap Transparan (Agar form login tetap terbaca) -->
   <div class="absolute inset-0 bg-navy-950/75 backdrop-blur-[2px]"></div>
-
-  <!-- 3. Efek Cahaya Emas & Navy -->
   <div class="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-gold-500/20 blur-3xl"></div>
   <div class="absolute -bottom-40 -left-40 w-[28rem] h-[28rem] rounded-full bg-navy-500/30 blur-3xl"></div>
 
@@ -170,6 +206,9 @@
           <div class="space-y-1">
             <div class="sidebar-item flex items-center gap-3.5 text-sm text-navy-500 cursor-pointer" onclick="showTab('admin', this)">
               <i data-icon="shield"></i><span class="nav-label">Verifikasi Mapres</span>
+            </div>
+            <div class="sidebar-item flex items-center gap-3.5 text-sm text-navy-500 cursor-pointer" onclick="showTab('audit', this)">
+              <i data-icon="audit"></i><span class="nav-label">Audit Log</span>
             </div>
           </div>
         </div>
@@ -389,7 +428,7 @@
                         <th class="py-3 px-3 text-center">Tingkat</th>
                         <th class="py-3 px-3 text-center">Status</th>
                         <th class="py-3 px-3 text-center">Poin</th>
-                        <th class="py-3 pr-7 pl-3 text-center">Keterangan / Alasan Tolak</th>
+                        <th class="py-3 pr-7 pl-3 text-center">Keterangan / Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="tabel-status" class="divide-y divide-navy-50"></tbody>
@@ -448,13 +487,36 @@
         </div>
       </section>
 
+      <!-- AUDIT LOG ADMIN -->
+      <section id="tab-audit" class="tabpage fade-in space-y-6 md:space-y-8">
+        <div>
+          <h1 class="text-2xl font-extrabold text-navy-900 tracking-tight">Audit Log Sistem</h1>
+          <p class="text-sm font-medium text-navy-500 mt-1.5">Jejak rekam aktivitas pengguna dan perubahan data.</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-navy-100/60 shadow-soft overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[800px]">
+              <thead>
+                <tr class="text-left text-[11px] font-bold text-navy-400 uppercase tracking-widest bg-navy-50/50 border-b border-navy-100/60">
+                  <th class="py-4 pl-7 pr-3">Waktu</th>
+                  <th class="py-4 px-3">Aktor (NPM/Role)</th>
+                  <th class="py-4 px-3">Aksi</th>
+                  <th class="py-4 pr-7 pl-3">Detail</th>
+                </tr>
+              </thead>
+              <tbody id="tabel-audit" class="divide-y divide-navy-50"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 </div>
 
 <script>
 // PENTING: Ganti ke localhost:8000 kalau ngetes di laptop!
-const API_BASE_URL = "https://clone-basin-payday.ngrok-free.dev";
+const API_BASE_URL = "http://localhost:8000";
 
 const icons = { 
   home:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>', 
@@ -463,6 +525,7 @@ const icons = {
   trophy:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v6a5 5 0 0 1-10 0z"/><path d="M17 5h3a2 2 0 0 1-2 4h-1"/><path d="M7 5H4a2 2 0 0 0 2 4h1"/></svg>', 
   shield:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', 
   star:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', 
+  audit:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
   logout:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>' 
 };
 document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icons[el.getAttribute('data-icon')] || ''; el.classList.add('shrink-0'); });
@@ -491,8 +554,8 @@ let selectedIdTolak = null;
 document.getElementById('login-form').addEventListener('submit', async function(e) { 
   e.preventDefault(); 
   const btn = document.getElementById('btn-login');
-  const npmVal = document.getElementById('npm-input').value;
-  const passVal = document.getElementById('password-input').value;
+  const npmVal = document.getElementById('npm-input').value.trim().toLowerCase();
+  const passVal = document.getElementById('password-input').value.trim();
 
   btn.innerHTML = '<div class="spinner"></div><span class="ml-1 text-[13px]">MEMPROSES...</span>';
   btn.classList.add('opacity-80', 'pointer-events-none');
@@ -506,10 +569,7 @@ document.getElementById('login-form').addEventListener('submit', async function(
     if (!response.ok) throw new Error((await response.json()).detail || "Gagal terhubung.");
     const result = await response.json();
     
-    // MENYIMPAN TOKEN JWT KE LOCAL STORAGE E-BROWSER
-    if (result.token) {
-        localStorage.setItem("acont_token", result.token);
-    }
+    if (result.token) localStorage.setItem("acont_token", result.token);
 
     userAktif = result.data.identitas || {nama: "Admin", npm: "admin"};
     userAktif.is_kandidat = result.data.is_kandidat;
@@ -525,8 +585,9 @@ document.getElementById('login-form').addEventListener('submit', async function(
         document.getElementById('menu-mahasiswa').classList.add('hidden');
         document.getElementById('menu-admin').classList.remove('hidden');
         
-        showTab('admin', document.querySelectorAll('.sidebar-item')[4]); 
+        showTab('admin', document.querySelectorAll('.sidebar-item')[5]); 
         loadAdminData();
+        loadAuditLog();
         showToast('Berhasil Login sebagai Administrator!');
     } else {
         renderDataToUI(result.data);
@@ -563,7 +624,6 @@ function renderDataToUI(data) {
   document.getElementById('profile-name').innerText = nama;
   document.getElementById('profile-npm').innerText = `NPM: ${npm}`;
 
-  // INJEKSI SIKU (Membaca format Objek baru)
   if (data.siku && typeof data.siku === 'object') {
     document.getElementById('dash-siku').innerText = data.siku.angka || '0';
     document.getElementById('siku-akhir').innerText = data.siku.angka || '0';
@@ -573,7 +633,6 @@ function renderDataToUI(data) {
     document.getElementById('siku-skp').innerText = data.siku.skp || '0';
   }
 
-  // INJEKSI SKPM (Membaca format Detail baru)
   if (data.skpm_dash) {
     document.getElementById('dash-poin').innerText = data.skpm_dash.total_nilai || '0';
     document.getElementById('skpm-poin').innerText = data.skpm_dash.total_nilai || '0';
@@ -603,7 +662,6 @@ function renderDataToUI(data) {
     document.getElementById('skpm-approved-list').innerHTML = '<p class="text-sm text-navy-400 p-4">Tidak ada data rincian kegiatan.</p>';
   }
 
-  // INJEKSI NILAI
   if (data.akademik && data.akademik.mata_kuliah) {
     document.getElementById('ip-semester').innerText = data.akademik.ip_semester;
     document.getElementById('nilai-table-body').innerHTML = data.akademik.mata_kuliah.map((d,i) => `
@@ -622,7 +680,7 @@ function renderDataToUI(data) {
 }
 
 // =============================
-// MAPRES LOGIC DENGAN JWT AUTHORIZATION
+// MAPRES LOGIC
 // =============================
 async function daftarSebagaiKandidat() {
     try {
@@ -691,13 +749,23 @@ async function loadStatusPengajuan() {
         tbody.innerHTML = hasil.data.map(item => {
             let badgeClass = item.status === 'Disetujui' ? 'bg-green-50 text-green-600 border-green-200' : 
                              item.status === 'Ditolak' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200';
+            
+            // Tombol aksi edit dan batal khusus untuk yang pending
+            let aksiContent = item.status === 'Pending' ? `
+                <div class="flex items-center justify-center gap-2">
+                    <button onclick="bukaModalEdit(${item.id}, '${item.prestasi}', '${item.tingkat}')" class="text-blue-500 hover:underline">Edit</button>
+                    <span class="text-navy-200">|</span>
+                    <button onclick="batalkanPengajuan(${item.id})" class="text-red-500 hover:underline">Batal</button>
+                </div>
+            ` : `<span class="text-navy-500">${item.alasan}</span>`;
+
             return `
             <tr class="border-b border-navy-50 hover:bg-navy-50/40 transition">
                 <td class="py-3 pl-7 pr-3 text-[13px] font-bold text-navy-900">${item.prestasi}</td>
                 <td class="py-3 px-3 text-center text-[12px] text-navy-600">${item.tingkat}</td>
                 <td class="py-3 px-3 text-center"><span class="px-2 py-1 border rounded text-[10px] font-bold ${badgeClass}">${item.status}</span></td>
                 <td class="py-3 px-3 text-center text-[12px] font-bold">${item.skor}</td>
-                <td class="py-3 pr-7 pl-3 text-center text-[11px] text-navy-500">${item.alasan}</td>
+                <td class="py-3 pr-7 pl-3 text-center text-[11px]">${aksiContent}</td>
             </tr>`;
         }).join('');
     } catch(e) {}
@@ -731,7 +799,69 @@ async function loadRanking() {
 }
 
 // =============================
-// ADMIN LOGIC (VERIFIKASI) DENGAN JWT AUTHORIZATION
+// EDIT & BATAL PENGAJUAN (MAHASISWA)
+// =============================
+function bukaModalEdit(id, nama, tingkat) {
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-nama').value = nama;
+    // Tingkat dan Kategori default ke yang pertama, bisa dikembangkan dengan populate data spesifik
+    document.getElementById('modal-edit').classList.remove('hidden');
+    document.getElementById('modal-edit').classList.add('flex');
+}
+
+function closeModalEdit() {
+    document.getElementById('modal-edit').classList.add('hidden');
+    document.getElementById('modal-edit').classList.remove('flex');
+}
+
+async function konfirmasiEdit() {
+    const id = document.getElementById("edit-id").value;
+    const nama = document.getElementById("edit-nama").value;
+    const kategori = document.getElementById("edit-kategori").value;
+    const tingkat = document.getElementById("edit-tingkat").value;
+    const link = document.getElementById("edit-link").value;
+
+    if(!nama || !link) return showToast("Data tidak boleh kosong", "error");
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/edit_pengajuan`, {
+            method: "PUT", 
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("acont_token")}`
+            },
+            body: JSON.stringify({ id_pengajuan: parseInt(id), nama_prestasi: nama, kategori: kategori, tingkat: tingkat, link_bukti: link })
+        });
+        const data = await response.json();
+        if(response.ok) {
+            showToast("Perubahan berhasil disimpan", "success");
+            closeModalEdit();
+            loadStatusPengajuan();
+        } else { showToast(data.detail, "error"); }
+    } catch(e) { showToast("Gagal menyimpan.", "error"); }
+}
+
+async function batalkanPengajuan(id) {
+    if(!confirm("Anda yakin ingin membatalkan dan menghapus pengajuan ini?")) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/hapus_pengajuan`, {
+            method: "DELETE", 
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("acont_token")}`
+            },
+            body: JSON.stringify({ id_pengajuan: id })
+        });
+        const data = await response.json();
+        if(response.ok) {
+            showToast("Pengajuan dibatalkan.", "success");
+            loadStatusPengajuan();
+        } else { showToast(data.detail, "error"); }
+    } catch(e) { showToast("Error membatalkan.", "error"); }
+}
+
+// =============================
+// ADMIN LOGIC (VERIFIKASI & AUDIT)
 // =============================
 async function loadAdminData() {
     try {
@@ -781,6 +911,7 @@ async function verifikasiACC(id) {
         if(response.ok) { 
             showToast("Prestasi disetujui!", "success"); 
             loadAdminData(); 
+            loadAuditLog();
         } else { showToast(data.detail, "error"); }
     } catch(e) { showToast("Error.", "error"); }
 }
@@ -815,14 +946,44 @@ async function konfirmasiTolak() {
         if(response.ok) { 
             showToast("Prestasi berhasil ditolak.", "success"); 
             loadAdminData(); 
+            loadAuditLog();
             closeModalTolak(); 
         } else { showToast(data.detail, "error"); }
     } catch(e) { showToast("Error.", "error"); }
 }
 
+async function loadAuditLog() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/audit_log`, {
+            headers: { "Authorization": `Bearer ${localStorage.getItem("acont_token")}` }
+        });
+        const hasil = await response.json();
+        if(!response.ok) return;
+
+        const tbody = document.getElementById("tabel-audit");
+        if (hasil.data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-sm text-navy-400">Belum ada aktivitas terekam.</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = hasil.data.map(item => `
+            <tr class="hover:bg-navy-50/40 transition border-b border-navy-50">
+                <td class="py-3 pl-7 pr-3 text-[11px] font-medium text-navy-500 whitespace-nowrap">${item.waktu}</td>
+                <td class="py-3 px-3 text-[12px] font-bold text-navy-900">${item.aktor}</td>
+                <td class="py-3 px-3 text-[11px] font-bold text-navy-600 uppercase">${item.aksi}</td>
+                <td class="py-3 pr-7 pl-3 text-[12px] text-navy-600">${item.detail}</td>
+            </tr>`).join('');
+    } catch(e) {}
+}
+
 // NAVIGATION & LOGOUT
-function doLogout(){ 
-  // HAPUS TOKEN JWT DARI BROWSER
+async function doLogout(){ 
+  try {
+      await fetch(`${API_BASE_URL}/api/logout`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${localStorage.getItem("acont_token")}` }
+      });
+  } catch(e) {}
+  
   localStorage.removeItem("acont_token");
   location.reload(); 
 }
@@ -837,7 +998,7 @@ function toggleSidebar() {
     document.querySelectorAll('.nav-label, #sidebar-brand, .nav-group-title').forEach(el => el.classList.toggle('hidden', desktopCollapsed));
   }
 }
-const titles = {beranda: 'Beranda', profil: 'Profil Akademik', nilai: 'Hasil Studi', skpm: 'Sistem Kredit Poin', siku: 'Penilaian Karakter', mapres: 'Mapres & Ranking', admin: 'Panel Admin'};
+const titles = {beranda: 'Beranda', profil: 'Profil Akademik', nilai: 'Hasil Studi', skpm: 'Sistem Kredit Poin', siku: 'Penilaian Karakter', mapres: 'Mapres & Ranking', admin: 'Panel Admin', audit: 'Audit Log'};
 function showTab(id, el){
   if(window.innerWidth < 768) toggleSidebar();
   document.querySelectorAll('.tabpage').forEach(t => t.classList.remove('active'));
